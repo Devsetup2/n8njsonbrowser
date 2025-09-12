@@ -1,0 +1,158 @@
+{
+  "name": "DeepSeek + ElevenLabs Voice Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-assistant",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Eğer payload.audio varsa burada STT çağırabilirsiniz.\nreturn items;"
+      },
+      "name": "Check / Optional STT",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        450,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://api-docs.deepseek.com/v1/chat/completions",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\"model\": \"r1\", \"messages\": [{\"role\": \"user\", \"content\": $json[\"text\"]}], \"stream\": false}"
+      },
+      "name": "DeepSeek Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        650,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "tts_text",
+              "value": "=<ReferenceError: $json is not defined>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set TTS Text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        850,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/<ReferenceError: VOICE_ID is not defined>",
+        "responseFormat": "file",
+        "jsonParameters": true,
+        "options": {},
+        "headerParametersJson": "={\"xi-api-key\": \"<ReferenceError: ELEVENLABS_API_KEY is not defined>\", \"Content-Type\": \"application/json\"}",
+        "bodyParametersJson": "={\"text\": $json[\"tts_text\"], \"voice\": \"<ReferenceError: VOICE_ID is not defined>\", \"output_format\": \"mp3\"}"
+      },
+      "name": "ElevenLabs TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "data",
+        "options": {}
+      },
+      "name": "Respond With Audio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check / Optional STT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check / Optional STT": {
+      "main": [
+        [
+          {
+            "node": "DeepSeek Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat": {
+      "main": [
+        [
+          {
+            "node": "Set TTS Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set TTS Text": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs TTS": {
+      "main": [
+        [
+          {
+            "node": "Respond With Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

@@ -1,0 +1,295 @@
+{
+  "automation_name": "E-commerce Order Tracking System",
+  "version": "1.0",
+  "description": "Automatically detects new orders, updates stock levels, and sends customer notifications",
+  "triggers": [
+    {
+      "id": "new_order_trigger",
+      "type": "webhook",
+      "event": "order.created",
+      "endpoint": "/api/webhooks/orders",
+      "authentication": {
+        "type": "api_key",
+        "header": "X-API-Key"
+      }
+    },
+    {
+      "id": "order_status_change",
+      "type": "database_watch",
+      "table": "orders",
+      "columns": ["status", "tracking_number"],
+      "condition": "status IN ('processing', 'shipped', 'delivered', 'cancelled')"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "process_new_order",
+      "name": "Process New Order",
+      "trigger_id": "new_order_trigger",
+      "steps": [
+        {
+          "id": "validate_order",
+          "type": "validation",
+          "action": "validate_order_data",
+          "parameters": {
+            "required_fields": ["customer_id", "items", "total_amount", "payment_method"],
+            "validation_rules": {
+              "total_amount": {"type": "number", "min": 0},
+              "items": {"type": "array", "min_length": 1}
+            }
+          },
+          "on_failure": {
+            "action": "log_error",
+            "notify_admin": true
+          }
+        },
+        {
+          "id": "check_inventory",
+          "type": "inventory_check",
+          "action": "verify_stock_availability",
+          "parameters": {
+            "check_mode": "real_time",
+            "reserve_stock": true
+          },
+          "conditions": [
+            {
+              "if": "stock_insufficient",
+              "then": [
+                {
+                  "action": "send_notification",
+                  "template": "insufficient_stock_customer",
+                  "recipient": "{{order.customer_email}}"
+                },
+                {
+                  "action": "update_order_status",
+                  "status": "on_hold",
+                  "reason": "insufficient_stock"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "update_inventory",
+          "type": "inventory_update",
+          "action": "reduce_stock_levels",
+          "parameters": {
+            "method": "decrement_by_quantity",
+            "update_mode": "atomic",
+            "track_changes": true
+          },
+          "rollback_on_failure": true
+        },
+        {
+          "id": "create_order_record",
+          "type": "database_operation",
+          "action": "insert_order",
+          "table": "orders",
+          "data": {
+            "order_id": "{{generate_uuid()}}",
+            "customer_id": "{{trigger.data.customer_id}}",
+            "items": "{{trigger.data.items}}",
+            "total_amount": "{{trigger.data.total_amount}}",
+            "status": "confirmed",
+            "created_at": "{{current_timestamp()}}",
+            "tracking_number": "{{generate_tracking_number()}}"
+          }
+        },
+        {
+          "id": "send_order_confirmation",
+          "type": "notification",
+          "action": "send_email",
+          "template": "order_confirmation",
+          "recipient": "{{trigger.data.customer_email}}",
+          "data": {
+            "order_number": "{{steps.create_order_record.result.order_id}}",
+            "items": "{{trigger.data.items}}",
+            "total": "{{trigger.data.total_amount}}",
+            "estimated_delivery": "{{calculate_delivery_date()}}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "handle_status_updates",
+      "name": "Handle Order Status Updates",
+      "trigger_id": "order_status_change",
+      "steps": [
+        {
+          "id": "determine_notification_type",
+          "type": "conditional",
+          "conditions": [
+            {
+              "if": "{{trigger.new_value.status}} == 'processing'",
+              "then": [
+                {
+                  "action": "send_notification",
+                  "template": "order_processing",
+                  "recipient": "{{get_customer_email(trigger.data.customer_id)}}"
+                }
+              ]
+            },
+            {
+              "if": "{{trigger.new_value.status}} == 'shipped'",
+              "then": [
+                {
+                  "action": "send_notification",
+                  "template": "order_shipped",
+                  "recipient": "{{get_customer_email(trigger.data.customer_id)}}",
+                  "data": {
+                    "tracking_number": "{{trigger.new_value.tracking_number}}",
+                    "carrier": "{{get_carrier_info(trigger.new_value.tracking_number)}}"
+                  }
+                }
+              ]
+            },
+            {
+              "if": "{{trigger.new_value.status}} == 'delivered'",
+              "then": [
+                {
+                  "action": "send_notification",
+                  "template": "order_delivered",
+                  "recipient": "{{get_customer_email(trigger.data.customer_id)}}"
+                },
+                {
+                  "action": "schedule_followup",
+                  "template": "review_request",
+                  "delay": "3_days"
+                }
+              ]
+            },
+            {
+              "if": "{{trigger.new_value.status}} == 'cancelled'",
+              "then": [
+                {
+                  "action": "restore_inventory",
+                  "items": "{{trigger.data.items}}"
+                },
+                {
+                  "action": "send_notification",
+                  "template": "order_cancelled",
+                  "recipient": "{{get_customer_email(trigger.data.customer_id)}}"
+                },
+                {
+                  "action": "process_refund",
+                  "amount": "{{trigger.data.total_amount}}",
+                  "payment_method": "{{trigger.data.payment_method}}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "notification_templates": {
+    "order_confirmation": {
+      "type": "email",
+      "subject": "Order Confirmation #{{order_number}}",
+      "template": "templates/order_confirmation.html",
+      "variables": ["order_number", "items", "total", "estimated_delivery"]
+    },
+    "order_processing": {
+      "type": "email",
+      "subject": "Your Order is Being Processed",
+      "template": "templates/order_processing.html",
+      "variables": ["order_number"]
+    },
+    "order_shipped": {
+      "type": "email",
+      "subject": "Your Order Has Shipped!",
+      "template": "templates/order_shipped.html",
+      "variables": ["order_number", "tracking_number", "carrier"]
+    },
+    "order_delivered": {
+      "type": "email",
+      "subject": "Your Order Has Been Delivered",
+      "template": "templates/order_delivered.html",
+      "variables": ["order_number"]
+    },
+    "order_cancelled": {
+      "type": "email",
+      "subject": "Order Cancellation Confirmation",
+      "template": "templates/order_cancelled.html",
+      "variables": ["order_number", "refund_amount"]
+    },
+    "insufficient_stock_customer": {
+      "type": "email",
+      "subject": "Order on Hold - Stock Update",
+      "template": "templates/insufficient_stock.html",
+      "variables": ["order_number", "affected_items"]
+    }
+  },
+  "error_handling": {
+    "retry_policy": {
+      "max_retries": 3,
+      "retry_delay": "exponential",
+      "base_delay": "30s"
+    },
+    "failure_notifications": {
+      "admin_email": "admin@company.com",
+      "slack_webhook": "https://hooks.slack.com/services/xxx",
+      "critical_errors": ["payment_failure", "inventory_sync_error"]
+    }
+  },
+  "monitoring": {
+    "metrics": [
+      "order_processing_time",
+      "notification_delivery_rate",
+      "inventory_accuracy",
+      "error_rate"
+    ],
+    "alerts": [
+      {
+        "condition": "error_rate > 5%",
+        "action": "notify_admin",
+        "cooldown": "15m"
+      },
+      {
+        "condition": "order_processing_time > 5m",
+        "action": "escalate_to_support"
+      }
+    ]
+  },
+  "integrations": {
+    "inventory_system": {
+      "type": "database",
+      "connection": "postgresql://inventory_db",
+      "tables": ["products", "stock_levels"]
+    },
+    "payment_gateway": {
+      "type": "api",
+      "base_url": "https://api.paymentgateway.com",
+      "authentication": "oauth2"
+    },
+    "shipping_carriers": [
+      {
+        "name": "fedex",
+        "api_endpoint": "https://api.fedex.com/track",
+        "api_key": "{{env.FEDEX_API_KEY}}"
+      },
+      {
+        "name": "ups",
+        "api_endpoint": "https://api.ups.com/track",
+        "api_key": "{{env.UPS_API_KEY}}"
+      }
+    ],
+    "email_service": {
+      "provider": "sendgrid",
+      "api_key": "{{env.SENDGRID_API_KEY}}",
+      "from_email": "orders@company.com"
+    }
+  },
+  "security": {
+    "encryption": {
+      "data_at_rest": true,
+      "data_in_transit": true,
+      "algorithm": "AES-256"
+    },
+    "access_control": {
+      "authentication_required": true,
+      "role_based_permissions": true,
+      "audit_logging": true
+    }
+  }
+}
