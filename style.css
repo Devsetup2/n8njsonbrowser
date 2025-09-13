@@ -1,0 +1,24 @@
+/* Google Fonts gibi harici bir font ailesi eklemek isterseniz burayı kullanabilirsiniz. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Aktif kategori butonu için özel stil */
+.filter-btn.active {
+    background-color: #3b82f6; /* Tailwind blue-500 */
+    color: white;
+    font-weight: 500;
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+}
+
+/* Kartların üzerine gelince hafifçe büyüme efekti */
+.automation-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.automation-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
