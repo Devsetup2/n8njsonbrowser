@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
           title: "AirtableAI Agent project management",
           description: "AirtableAI accelerates teams' business operations and is an embedded artificial intelligence agent at an enterprise scale.",
           category: "Company Regulator",
-          source: "Airtablemanagement.json"
+          source: "airtablemanagement.json"
       },
       {
           id: 5,
