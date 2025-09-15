@@ -9,26 +9,27 @@ document.addEventListener('DOMContentLoaded', () => {
           category: "e-commerce",
           source: "ecommerceordertracker.json"
       },
-      {
+       {
           id: 2,
-          title: "AI Destekli Müşteri Destek Yanıtları",
-          description: "Gelen destek taleplerini analiz eder ve sık sorulan soruları yapay zeka ile otomatik yanıtlar.",
+          title: "N8n + DeepSeek + ElevenLabs — Voice Assistant",
+          description: "Deepseek and Elevenlabs AI-powered voice assistant system",
           category: "AI",
-          source: "jsons/ai-support-responder.json"
+          source: "elevenlabsvoiceassistant.json"
       },
-      {
+     {
           id: 3,
-          title: "Sosyal Medya İçerik Planlayıcı",
-          description: "Belirlenen içerikleri ve görselleri, zamanlanmış tarihlerde sosyal medya platformlarında paylaşır.",
-          category: "Marketing",
-          source: "jsons/social-media-scheduler.json"
+          title: "Wise Order Otomation",
+          description: "Wise foreign exchange transfer application automation",
+          category: "Bussines",
+          source: "wiseautomate.json"
       },
+      
       {
           id: 4,
-          title: "Influencer Kampanya Raporlama",
-          description: "Influencer pazarlama kampanyalarının etkileşim oranlarını ve geri dönüşlerini otomatik raporlar.",
-          category: "Influencer",
-          source: "jsons/influencer-campaign-report.json"
+          title: "AirtableAI Agent project management",
+          description: "AirtableAI accelerates teams' business operations and is an embedded artificial intelligence agent at an enterprise scale.",
+          category: "Company Regulator",
+          source: "Airtablemanagement.json"
       },
       {
           id: 5,
@@ -74,18 +75,25 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
           id: 11,
-          title: "N8n + DeepSeek + ElevenLabs — Voice Assistant",
-          description: "Deepseek and Elevenlabs AI-powered voice assistant system",
-          category: "AI",
-          source: "elevenlabsvoiceassistant.json"
+          title: "Influencer Kampanya Raporlama",
+          description: "Influencer pazarlama kampanyalarının etkileşim oranlarını ve geri dönüşlerini otomatik raporlar.",
+          category: "Influencer",
+          source: "jsons/influencer-campaign-report.json"
       },
       {
           id: 12,
-          title: "Wise Order Otomation",
-          description: "Wise foreign exchange transfer application automation",
-          category: "Bussines",
-          source: "jsons/Wise_Automate.json"
-      }
+          title: "Sosyal Medya İçerik Planlayıcı",
+          description: "Belirlenen içerikleri ve görselleri, zamanlanmış tarihlerde sosyal medya platformlarında paylaşır.",
+          category: "Marketing",
+          source: "jsons/social-media-scheduler.json"
+      },
+     {
+          id: 13,
+          title: "AI Destekli Müşteri Destek Yanıtları",
+          description: "Gelen destek taleplerini analiz eder ve sık sorulan soruları yapay zeka ile otomatik yanıtlar.",
+          category: "AI",
+          source: "jsons/ai-support-responder.json"
+      },
   ];
 
   const categories = ["All", ...new Set(automationData.map(item => item.category))];
