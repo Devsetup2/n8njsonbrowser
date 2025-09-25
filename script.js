@@ -33,10 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
           id: 5,
-          title: "Sunucu Durum Kontrolü ve Raporlama",
-          description: "IT altyapısındaki sunucuların sağlık durumunu periyodik olarak kontrol eder ve sorun anında uyarı gönderir.",
+          title: "Server Monitoring Reporting",
+          description: "It periodically checks the health status of servers in the IT infrastructure and sends alerts in the event of a problem.",
           category: "IT Ops",
-          source: "jsons/server-health-check.json"
+          source: "servermonitoringreporting.json"
       },
       {
           id: 6,
