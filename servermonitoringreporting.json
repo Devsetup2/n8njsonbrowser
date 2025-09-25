@@ -1,0 +1,149 @@
+{
+  "name": "Basit Sunucu İzleme",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minute": 5
+            }
+          ]
+        }
+      },
+      "name": "Timer",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "timer-node"
+    },
+    {
+      "parameters": {
+        "url": "http://192.168.1.10:80",
+        "timeout": 5000
+      },
+      "name": "Web Server Kontrol",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 200],
+      "id": "web-server-check",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://192.168.1.20:3306",
+        "timeout": 5000
+      },
+      "name": "Database Server Kontrol",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 400],
+      "id": "db-server-check",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "const webResult = $input.first();\nconst dbResult = $input.all()[1];\n\nlet alerts = [];\n\n// Web server kontrolü\nif (!webResult.json.statusCode || webResult.json.statusCode >= 400) {\n  alerts.push({\n    server: 'Web Server',\n    status: 'DOWN',\n    message: 'Web server erişilemiyor!',\n    timestamp: new Date().toISOString()\n  });\n}\n\n// Database server kontrolü\nif (!dbResult.json.statusCode || dbResult.json.statusCode >= 400) {\n  alerts.push({\n    server: 'Database Server',\n    status: 'DOWN',\n    message: 'Database server erişilemiyor!',\n    timestamp: new Date().toISOString()\n  });\n}\n\nif (alerts.length > 0) {\n  return alerts.map(alert => ({ json: alert }));\n} else {\n  return [{ json: { message: 'Tüm sunucular çalışıyor', timestamp: new Date().toISOString() } }];\n}"
+      },
+      "name": "Sonuçları Değerlendir",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "evaluate-results"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.status}}",
+              "operation": "equal",
+              "value2": "DOWN"
+            }
+          ]
+        }
+      },
+      "name": "Sorun Var mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "id": "check-problems"
+    },
+    {
+      "parameters": {
+        "fromEmail": "monitor@company.com",
+        "toEmail": "admin@company.com",
+        "subject": "⚠️ Sunucu Uyarısı",
+        "text": "=Sunucu: {{$json.server}}\nDurum: {{$json.status}}\nMesaj: {{$json.message}}\nZaman: {{$json.timestamp}}"
+      },
+      "name": "E-posta Gönder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "id": "send-email"
+    }
+  ],
+  "connections": {
+    "Timer": {
+      "main": [
+        [
+          {
+            "node": "Web Server Kontrol",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Database Server Kontrol",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web Server Kontrol": {
+      "main": [
+        [
+          {
+            "node": "Sonuçları Değerlendir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Database Server Kontrol": {
+      "main": [
+        [
+          {
+            "node": "Sonuçları Değerlendir",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Sonuçları Değerlendir": {
+      "main": [
+        [
+          {
+            "node": "Sorun Var mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sorun Var mı?": {
+      "main": [
+        [
+          {
+            "node": "E-posta Gönder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
