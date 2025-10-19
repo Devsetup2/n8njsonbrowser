@@ -40,10 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
           id: 6,
-          title: "Yeni Satış Fırsatı Oluşturma",
-          description: "Web sitesi formundan gelen potansiyel müşteri bilgilerini CRM sistemine otomatik olarak kaydeder.",
+          title: "Create New Sales Opportunity",
+          description: "Automatically records potential customer information from the website form into the CRM system.Write json automation codes",
           category: "Sales",
-          source: "jsons/new-lead-creation.json"
+          source: "Create New Sales Opportunity.json"
       },
       {
           id: 7,
