@@ -1,0 +1,315 @@
+{
+  "name": "Create Sales Opportunity from Website Form",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sales-form",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Form Submission",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "sales-form-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.email}}",
+              "operation": "isNotEmpty"
+            },
+            {
+              "value1": "={{$json.full_name}}",
+              "operation": "isNotEmpty"
+            },
+            {
+              "value1": "={{$json.email}}",
+              "operation": "regex",
+              "value2": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+            }
+          ]
+        }
+      },
+      "id": "validate-data",
+      "name": "Validate Form Data",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "merge-data",
+      "name": "Merge Contact Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "resource": "contact",
+        "operation": "search",
+        "email": "={{$json.email}}",
+        "additionalFields": {}
+      },
+      "id": "check-duplicate",
+      "name": "Check Existing Contact",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "hubspotApi": {
+          "id": "1",
+          "name": "HubSpot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "deal",
+        "operation": "create",
+        "dealName": "={{$json.full_name}} - {{$json.company_name}}",
+        "stage": "appointmentscheduled",
+        "additionalFields": {
+          "amount": "={{$json.budget}}",
+          "closeDate": "={{$now.plus(30, 'days').toISO()}}",
+          "dealType": "newbusiness",
+          "description": "={{$json.message}}",
+          "pipeline": "default"
+        }
+      },
+      "id": "create-opportunity",
+      "name": "Create CRM Opportunity",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "hubspotApi": {
+          "id": "1",
+          "name": "HubSpot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate lead score\nconst companySize = $input.item.json.company_size || 'small';\nconst budget = parseInt($input.item.json.budget) || 0;\nconst urgency = $input.item.json.urgency || 'exploring';\nconst jobTitle = $input.item.json.job_title || '';\n\nlet score = 0;\n\n// Company size scoring\nif (companySize === 'enterprise') score += 30;\nelse if (companySize === 'mid_market') score += 20;\nelse score += 10;\n\n// Budget scoring\nif (budget >= 100000) score += 25;\nelse if (budget >= 50000) score += 15;\nelse score += 5;\n\n// Urgency scoring\nif (urgency === 'immediate') score += 20;\nelse if (urgency === 'within_month') score += 10;\nelse score += 5;\n\n// Job title scoring\nconst decisionMakers = ['ceo', 'cto', 'director', 'vp', 'president'];\nconst isDecisionMaker = decisionMakers.some(title => \n  jobTitle.toLowerCase().includes(title)\n);\nif (isDecisionMaker) score += 15;\nelse score += 5;\n\nreturn {\n  ...($input.item.json),\n  lead_score: score,\n  priority: score >= 70 ? 'high' : score >= 50 ? 'medium' : 'low'\n};"
+      },
+      "id": "calculate-score",
+      "name": "Calculate Lead Score",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.lead_score}}",
+              "operation": "largerEqual",
+              "value2": 70
+            }
+          ]
+        }
+      },
+      "id": "route-by-score",
+      "name": "Route by Priority",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#sales-alerts",
+        "text": "🔥 High Priority Lead Alert!\n\nName: {{$json.full_name}}\nCompany: {{$json.company_name}}\nEmail: {{$json.email}}\nLead Score: {{$json.lead_score}}\nEstimated Value: ${{$json.budget}}\n\nAction Required: Follow up within 24 hours",
+        "otherOptions": {}
+      },
+      "id": "notify-slack-high",
+      "name": "Notify Slack - High Priority",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1650, 200],
+      "credentials": {
+        "slackApi": {
+          "id": "2",
+          "name": "Slack Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#sales-leads",
+        "text": "📋 New Lead Received\n\nName: {{$json.full_name}}\nCompany: {{$json.company_name}}\nLead Score: {{$json.lead_score}}",
+        "otherOptions": {}
+      },
+      "id": "notify-slack-normal",
+      "name": "Notify Slack - Normal Priority",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1650, 400],
+      "credentials": {
+        "slackApi": {
+          "id": "2",
+          "name": "Slack Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "sales@yourcompany.com",
+        "toEmail": "={{$json.email}}",
+        "subject": "Thank you for your interest!",
+        "emailFormat": "html",
+        "text": "=Hi {{$json.full_name.split(' ')[0]}},\n\nThank you for reaching out to us! We've received your inquiry and one of our sales representatives will contact you within 24 hours.\n\nBest regards,\nSales Team",
+        "options": {}
+      },
+      "id": "send-auto-response",
+      "name": "Send Auto-Response Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1450, 500],
+      "credentials": {
+        "smtp": {
+          "id": "3",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Thank you! We'll be in touch soon.\", \"reference\": $json.id } }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [650, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Invalid form data. Please ensure all required fields are filled."
+      },
+      "id": "error-response",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [650, 100]
+    }
+  ],
+  "connections": {
+    "Webhook - Form Submission": {
+      "main": [
+        [
+          {
+            "node": "Validate Form Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Form Data": {
+      "main": [
+        [
+          {
+            "node": "Check Existing Contact",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Existing Contact": {
+      "main": [
+        [
+          {
+            "node": "Merge Contact Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Contact Data": {
+      "main": [
+        [
+          {
+            "node": "Create CRM Opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create CRM Opportunity": {
+      "main": [
+        [
+          {
+            "node": "Calculate Lead Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Lead Score": {
+      "main": [
+        [
+          {
+            "node": "Route by Priority",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Auto-Response Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Priority": {
+      "main": [
+        [
+          {
+            "node": "Notify Slack - High Priority",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Slack - Normal Priority",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
