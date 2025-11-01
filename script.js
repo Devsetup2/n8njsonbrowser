@@ -47,10 +47,10 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
           id: 7,
-          title: "Fatura ve Sözleşme Arşivleme",
-          description: "Gelen e-postalardaki fatura ve sözleşme eklerini tarar, isimlendirir ve ilgili bulut klasörüne arşivler.",
+          title: "Invoice and Contract Archiving",
+          description: "Scans, names, and archives invoice and contract attachments in incoming emails to the relevant cloud folder.",
           category: "Document Ops",
-          source: "jsons/invoice-contract-archiver.json"
+          source: "Invoice and Contract Archiving.json"
       },
       {
           id: 8,
