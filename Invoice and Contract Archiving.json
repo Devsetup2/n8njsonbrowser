@@ -1,0 +1,309 @@
+{
+  "sistem_adi": "Fatura ve Sözleşme Arşivleme Sistemi",
+  "versiyon": "1.0",
+  "aciklama": "E-postalardaki fatura ve sözleşme eklerini otomatik tarar, isimlendirir ve bulut klasörüne arşivler",
+  
+  "eposta_ayarlari": {
+    "sunucu_tipi": "IMAP",
+    "sunucu_adresi": "imap.gmail.com",
+    "port": 993,
+    "ssl_aktif": true,
+    "kullanici_adi": "{{EMAIL_USERNAME}}",
+    "sifre": "{{EMAIL_PASSWORD}}",
+    "tarama_sikligi_dakika": 15,
+    "okunmamis_kontrol": true
+  },
+  
+  "tarama_kurallari": {
+    "anahtar_kelimeler": {
+      "fatura": [
+        "fatura",
+        "invoice",
+        "bill",
+        "tahsilat",
+        "ödeme belgesi",
+        "fiş"
+      ],
+      "sozlesme": [
+        "sözleşme",
+        "contract",
+        "agreement",
+        "anlaşma",
+        "protokol",
+        "taahhüt"
+      ]
+    },
+    
+    "dosya_uzantilari": [
+      ".pdf",
+      ".doc",
+      ".docx",
+      ".xlsx",
+      ".xls",
+      ".jpg",
+      ".jpeg",
+      ".png"
+    ],
+    
+    "min_dosya_boyutu_kb": 10,
+    "max_dosya_boyutu_mb": 25,
+    
+    "gonderici_filtreleri": {
+      "izin_verilenler": [
+        "*@firma.com",
+        "muhasebe@*",
+        "fatura@*"
+      ],
+      "engellenenler": [
+        "spam@*",
+        "noreply@reklam.com"
+      ]
+    }
+  },
+  
+  "isimlendirme_kurallari": {
+    "fatura": {
+      "format": "{BELGE_TIPI}_{FIRMA_ADI}_{TARIH}_{FATURA_NO}",
+      "ornek": "FATURA_ABC_Sirket_20250101_FAT2025001.pdf",
+      "alan_cikarma": {
+        "fatura_no": {
+          "regex": "(FAT|INV|FTR)[\\s-]?\\d+",
+          "varsayilan": "BELIRTILMEDI"
+        },
+        "tarih": {
+          "regex": "\\d{2}[./\\-]\\d{2}[./\\-]\\d{4}",
+          "format": "YYYYMMDD",
+          "varsayilan": "{{BUGUN}}"
+        },
+        "firma_adi": {
+          "kaynak": "eposta_gonderici_domain",
+          "temizleme": "ozel_karakterleri_kaldir"
+        },
+        "tutar": {
+          "regex": "(\\d+[.,]\\d{2})\\s*(TL|USD|EUR|₺|\\$|€)",
+          "saklama_yeri": "metadata"
+        }
+      }
+    },
+    
+    "sozlesme": {
+      "format": "{BELGE_TIPI}_{TARAF_ADI}_{TARIH}_{KONU}",
+      "ornek": "SOZLESME_ABC_Sirket_20250101_Hizmet_Alimi.pdf",
+      "alan_cikarma": {
+        "taraf_adi": {
+          "kaynak": "eposta_gonderici_domain",
+          "temizleme": "ozel_karakterleri_kaldir"
+        },
+        "tarih": {
+          "oncelik": ["sozlesme_tarihi", "imza_tarihi", "eposta_tarihi"],
+          "format": "YYYYMMDD"
+        },
+        "konu": {
+          "kaynak": "eposta_konu",
+          "max_uzunluk": 50,
+          "temizleme": "kisaltma_yap"
+        },
+        "sozlesme_no": {
+          "regex": "(SZL|CONT|AGR)[\\s-]?\\d+",
+          "saklama_yeri": "metadata"
+        }
+      }
+    },
+    
+    "genel_kurallar": {
+      "karakter_limiti": 200,
+      "gecersiz_karakterler": ["\\", "/", ":", "*", "?", "\"", "<", ">", "|"],
+      "degistir": {
+        " ": "_",
+        "ı": "i",
+        "ğ": "g",
+        "ü": "u",
+        "ş": "s",
+        "ö": "o",
+        "ç": "c",
+        "İ": "I",
+        "Ğ": "G",
+        "Ü": "U",
+        "Ş": "S",
+        "Ö": "O",
+        "Ç": "C"
+      },
+      "kucuk_harf_donustur": false,
+      "kopya_durumunda": "SIRA_NO_EKLE"
+    }
+  },
+  
+  "bulut_depolama": {
+    "platform": "Google Drive",
+    "alternatifler": ["OneDrive", "Dropbox", "AWS S3"],
+    
+    "api_ayarlari": {
+      "google_drive": {
+        "api_endpoint": "https://www.googleapis.com/drive/v3",
+        "auth_type": "OAuth2",
+        "credentials_dosyasi": "{{CREDENTIALS_PATH}}",
+        "token_dosyasi": "{{TOKEN_PATH}}",
+        "scopes": [
+          "https://www.googleapis.com/auth/drive.file"
+        ]
+      }
+    },
+    
+    "klasor_yapisi": {
+      "ana_klasor": "Arşiv",
+      "alt_klasorler": {
+        "faturalar": {
+          "yol": "/Arşiv/Faturalar/{YIL}/{AY}",
+          "ornek": "/Arşiv/Faturalar/2025/01",
+          "otomatik_olustur": true
+        },
+        "sozlesmeler": {
+          "yol": "/Arşiv/Sözleşmeler/{YIL}/{KATEGORI}",
+          "ornek": "/Arşiv/Sözleşmeler/2025/Hizmet_Alimlari",
+          "kategoriler": [
+            "Hizmet_Alimlari",
+            "Tedarik",
+            "İstihdam",
+            "Kira",
+            "Diger"
+          ],
+          "otomatik_olustur": true
+        },
+        "hata": {
+          "yol": "/Arşiv/Hatali_Belgeler",
+          "aciklama": "İşlenemeyen veya hatalı belgeler"
+        }
+      }
+    },
+    
+    "yuklenme_ayarlari": {
+      "tekrar_deneme_sayisi": 3,
+      "timeout_saniye": 60,
+      "esitlik_kontrolu": "MD5_hash",
+      "kopya_varsa": "atla",
+      "baglanti_hatasi_bekleme_saniye": 300
+    }
+  },
+  
+  "metadata_yonetimi": {
+    "kayit_alanlari": [
+      "orijinal_dosya_adi",
+      "eposta_gonderici",
+      "eposta_konu",
+      "eposta_tarihi",
+      "isleme_tarihi",
+      "belge_tipi",
+      "fatura_no",
+      "sozlesme_no",
+      "tutar",
+      "para_birimi",
+      "firma_adi",
+      "tarih",
+      "hash_degeri"
+    ],
+    
+    "veritabani": {
+      "tip": "SQLite",
+      "dosya_yolu": "./database/arsiv.db",
+      "tablo_adi": "belgeler",
+      "yedekleme_sikligi_gun": 7
+    },
+    
+    "log_dosyasi": {
+      "yol": "./logs/arsiv_{TARIH}.log",
+      "seviye": "INFO",
+      "max_boyut_mb": 50,
+      "rotasyon": true
+    }
+  },
+  
+  "bildirimler": {
+    "aktif": true,
+    "kanallar": {
+      "eposta": {
+        "aktif": true,
+        "alicilar": [
+          "yonetici@firma.com"
+        ],
+        "durumlar": [
+          "basari_ozeti",
+          "hata",
+          "kritik_sorun"
+        ],
+        "gonderim_saati": "09:00",
+        "gunluk_ozet": true
+      },
+      
+      "slack": {
+        "aktif": false,
+        "webhook_url": "{{SLACK_WEBHOOK}}",
+        "kanal": "#arsiv-bildirimleri",
+        "durumlar": [
+          "hata",
+          "kritik_sorun"
+        ]
+      }
+    },
+    
+    "sablonlar": {
+      "basari": "✓ {SAYI} belge başarıyla arşivlendi. (Fatura: {FATURA_SAYISI}, Sözleşme: {SOZLESME_SAYISI})",
+      "hata": "✗ Hata: {DOSYA_ADI} işlenirken sorun oluştu. Sebep: {HATA_MESAJI}",
+      "kritik": "⚠ KRİTİK: Sistem {SURE} dakikadır çalışmıyor. Lütfen kontrol edin."
+    }
+  },
+  
+  "guvenlik": {
+    "sifrele": {
+      "hassas_belgeler": true,
+      "algoritma": "AES-256",
+      "anahtar_yolu": "{{ENCRYPTION_KEY_PATH}}"
+    },
+    
+    "erisim_kontrol": {
+      "sadece_yetkili_klasorler": true,
+      "roller": {
+        "admin": "tam_erisim",
+        "muhasebe": "fatura_okuma_yazma",
+        "hukuk": "sozlesme_okuma_yazma",
+        "kullanici": "sadece_okuma"
+      }
+    },
+    
+    "yedekleme": {
+      "otomatik_yedekleme": true,
+      "yedekleme_sikligi_gun": 1,
+      "yedekleme_konumu": "{{BACKUP_PATH}}",
+      "saklama_suresi_gun": 90
+    }
+  },
+  
+  "performans": {
+    "eszamanli_islem_sayisi": 5,
+    "bellek_limiti_mb": 512,
+    "onbellek_aktif": true,
+    "onbellek_suresi_saat": 24,
+    "toplu_islem_boyutu": 10
+  },
+  
+  "istisnalar": {
+    "atlanacak_dosyalar": [
+      "imza.png",
+      "logo.jpg",
+      "*.tmp"
+    ],
+    
+    "ozel_kurallar": [
+      {
+        "kural_adi": "buyuk_faturalar",
+        "kosul": "tutar > 10000",
+        "aksiyon": "ozel_klasore_kaydet",
+        "hedef_klasor": "/Arşiv/Onemli_Faturalar"
+      },
+      {
+        "kural_adi": "acil_sozlesmeler",
+        "kosul": "konu_icerigi.contains('acil')",
+        "aksiyon": "anlık_bildirim_gonder"
+      }
+    ]
+  }
+}
