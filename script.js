@@ -54,10 +54,10 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
           id: 8,
-          title: "Kripto Varlık Fiyat Uyarısı",
-          description: "Belirlediğiniz kripto varlıkların fiyatı, belirlediğiniz seviyeye geldiğinde size bildirim gönderir.",
+          title: "Crypto Asset Price Alert",
+          description: "When the price of the crypto assets you select reaches the level you specify, a notification will be sent to the email address you provided.Integration: CoingeckoCryptocurrencies: bitcoin, ethereum, cardano, solana, ripple",
           category: "Crypto",
-          source: "jsons/crypto-price-alert.json"
+          source: "crypto-price-alert.json"
       },
       {
           id: 9,
