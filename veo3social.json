@@ -1,0 +1,215 @@
+{
+  "name": "Automating video creation with VEO3 and Auto-post to IG & TikTok",
+  "description": "Creates videos using VEO3 AI and automatically posts to Instagram and TikTok",
+  "version": 1,
+  "flow": [
+    {
+      "id": 1,
+      "module": "Trigger: Raw Data Script Scheduler",
+      "type": "trigger",
+      "settings": {
+        "interval": "daily",
+        "time": "09:00"
+      }
+    },
+    {
+      "id": 2,
+      "module": "AI Agent: Create",
+      "type": "ai",
+      "settings": {
+        "prompt": "Generate creative video script and description"
+      },
+      "connections": [
+        {
+          "from": 1,
+          "to": 2
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "module": "OpenAI: Generate Video Script",
+      "type": "openai",
+      "settings": {
+        "model": "gpt-4",
+        "prompt": "Create a short video script optimized for social media"
+      },
+      "connections": [
+        {
+          "from": 2,
+          "to": 3
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "module": "Text Input: Creativity",
+      "type": "input",
+      "settings": {
+        "value": "high"
+      }
+    },
+    {
+      "id": 5,
+      "module": "Format Prompt: Pexels, Default JSON Format",
+      "type": "formatter",
+      "settings": {
+        "format": "json"
+      }
+    },
+    {
+      "id": 6,
+      "module": "VEO3: Create",
+      "type": "api",
+      "settings": {
+        "endpoint": "https://api.veo.co/v1/generate",
+        "method": "POST",
+        "auth": "api_key",
+        "parameters": {
+          "prompt": "{{3.output}}",
+          "duration": "15",
+          "resolution": "1080p",
+          "format": "mp4"
+        }
+      },
+      "connections": [
+        {
+          "from": 3,
+          "to": 6
+        },
+        {
+          "from": 5,
+          "to": 6
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "module": "Wait for Video Processing",
+      "type": "delay",
+      "settings": {
+        "seconds": 60
+      },
+      "connections": [
+        {
+          "from": 6,
+          "to": 7
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "module": "Download Final Video URL",
+      "type": "http",
+      "settings": {
+        "url": "{{6.video_url}}",
+        "method": "GET"
+      },
+      "connections": [
+        {
+          "from": 7,
+          "to": 8
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "module": "Google Sheets: Log Final",
+      "type": "google_sheets",
+      "settings": {
+        "spreadsheetId": "YOUR_SHEET_ID",
+        "range": "Sheet1!A:Z",
+        "values": [
+          "{{6.video_id}}",
+          "{{3.script}}",
+          "{{8.url}}"
+        ]
+      },
+      "connections": [
+        {
+          "from": 8,
+          "to": 9
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "module": "Instagram: Create Post",
+      "type": "instagram",
+      "settings": {
+        "videoUrl": "{{8.url}}",
+        "caption": "{{3.script}}\n\n#AI #Video #VEO3",
+        "hashtags": ["ai", "video", "automation"]
+      },
+      "connections": [
+        {
+          "from": 8,
+          "to": 10
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "module": "TikTok: Create Post",
+      "type": "tiktok",
+      "settings": {
+        "videoUrl": "{{8.url}}",
+        "caption": "{{3.script}}\n\n#AI #Video #VEO3",
+        "hashtags": ["ai", "video", "automation"]
+      },
+      "connections": [
+        {
+          "from": 8,
+          "to": 11
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "module": "YouTube: Upload Video",
+      "type": "youtube",
+      "settings": {
+        "videoUrl": "{{8.url}}",
+        "title": "{{3.script}}",
+        "description": "Auto-generated video using VEO3 AI",
+        "privacy": "public"
+      },
+      "connections": [
+        {
+          "from": 8,
+          "to": 12
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "module": "Post Results: Notification",
+      "type": "notification",
+      "settings": {
+        "message": "Video created and posted successfully to Instagram, TikTok, and YouTube"
+      },
+      "connections": [
+        {
+          "from": 10,
+          "to": 13
+        },
+        {
+          "from": 11,
+          "to": 13
+        },
+        {
+          "from": 12,
+          "to": 13
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "VEO3_API_KEY": "your_veo3_api_key_here",
+    "INSTAGRAM_ACCESS_TOKEN": "your_instagram_token_here",
+    "TIKTOK_ACCESS_TOKEN": "your_tiktok_token_here",
+    "YOUTUBE_REFRESH_TOKEN": "your_youtube_token_here",
+    "OPENAI_API_KEY": "your_openai_key_here"
+  },
+  "notes": "Replace all API keys and tokens with your actual credentials. Configure webhook triggers and adjust timing as needed."
+}
