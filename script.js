@@ -59,36 +59,43 @@ document.addEventListener('DOMContentLoaded', () => {
           category: "Crypto",
           source: "crypto-price-alert.json"
       },
-      {
+    {
           id: 9,
+          title: "Automating video creation",
+          description: "Automating video creation with VEO3 and Auto-post to IG & TikTok",
+          category: "Influencer",
+          source: "veo3social.json"
+      },
+      {
+          id: 10,
           title: "Şirket İçi Yasal Düzenleme Takibi",
           description: "Resmi gazete ve ilgili yasal kaynakları tarayarak şirket regülasyonlarına ilişkin değişiklikleri bildirir.",
           category: "Company Regulator",
           source: "jsons/legal-regulation-tracker.json"
       },
       {
-          id: 10,
+          id: 11,
           title: "Yazılım Build ve Test Süreci",
           description: "Kod deposuna yeni bir commit geldiğinde otomatik olarak build alır, testleri çalıştırır ve sonucu ekibe bildirir.",
           category: "Software",
           source: "jsons/ci-cd-build-test.json"
       },
       {
-          id: 11,
+          id: 12,
           title: "Influencer Kampanya Raporlama",
           description: "Influencer pazarlama kampanyalarının etkileşim oranlarını ve geri dönüşlerini otomatik raporlar.",
           category: "Influencer",
           source: "jsons/influencer-campaign-report.json"
       },
       {
-          id: 12,
+          id: 13,
           title: "Sosyal Medya İçerik Planlayıcı",
           description: "Belirlenen içerikleri ve görselleri, zamanlanmış tarihlerde sosyal medya platformlarında paylaşır.",
           category: "Marketing",
           source: "jsons/social-media-scheduler.json"
       },
      {
-          id: 13,
+          id: 14,
           title: "AI Destekli Müşteri Destek Yanıtları",
           description: "Gelen destek taleplerini analiz eder ve sık sorulan soruları yapay zeka ile otomatik yanıtlar.",
           category: "AI",
