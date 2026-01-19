@@ -75,10 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
           id: 11,
-          title: "Yazılım Build ve Test Süreci",
-          description: "Kod deposuna yeni bir commit geldiğinde otomatik olarak build alır, testleri çalıştırır ve sonucu ekibe bildirir.",
+          title: "Software Build and Test Process",
+          description: "When a new commit arrives in the code repository, it automatically builds, runs the tests, and reports the result to the team.",
           category: "Software",
-          source: "jsons/ci-cd-build-test.json"
+          source: "ci-cd-build-test.json"
       },
       {
           id: 12,
