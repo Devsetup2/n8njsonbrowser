@@ -68,8 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
           id: 10,
-          title: "Restaurant automation with artificial intelligence and WhatsApp trigger system ",
-          description: "Key Features:1. WhatsApp Integration2. Google Sheets Memory System3. Artificial Intelligence Integration (Claude)4. Workflow Process:Receives WhatsApp messageFilters text messagesExtracts customer dataSaves message to Google Sheets (memory)Retrieves customer conversation historyPrepares context for AIGenerates AI responseSaves AI response to memorySends response via WhatsAppReturns webhook confirmation",
+          title: "Restaurant AI Automation  ",
+          description: "Key Features:1. WhatsApp Integration2. Google Sheets Memory System3. Artificial Intelligence Integration (Claude)4. Workflow Process:Receives WhatsApp message customer dataSaves message  to memorySends webhook confirmation",
           category: "Company Regulator",
           source: "n8n restaurant.json"
       },
