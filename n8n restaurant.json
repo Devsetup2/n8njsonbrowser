@@ -1,5 +1,5 @@
 {
-  "name": "Restaurant WhatsApp Automation with AI",
+  "name": "Full Restaurant Automation System",
   "nodes": [
     {
       "parameters": {
@@ -12,48 +12,48 @@
       "name": "WhatsApp Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [250, 300],
-      "webhookId": "whatsapp-restaurant"
+      "position": [250, 500],
+      "webhookId": "restaurant-automation"
     },
     {
       "parameters": {
         "conditions": {
           "string": [
             {
-              "value1": "={{$json.body.message.type}}",
+              "value1": "={{$json.body.entry[0].changes[0].value.messages[0].type}}",
               "operation": "equals",
               "value2": "text"
             }
           ]
         }
       },
-      "id": "filter_text_messages",
+      "id": "filter_messages",
       "name": "Filter Text Messages",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [450, 300]
+      "position": [450, 500]
     },
     {
       "parameters": {
-        "jsCode": "const message = $input.first().json.body.message.text.body;\nconst from = $input.first().json.body.message.from;\nconst timestamp = new Date().toISOString();\n\nreturn {\n  json: {\n    customer_phone: from,\n    message: message,\n    timestamp: timestamp,\n    conversation_id: `${from}_${Date.now()}`\n  }\n};"
+        "jsCode": "const messageData = $input.first().json.body.entry[0].changes[0].value;\nconst message = messageData.messages[0];\nconst from = message.from;\nconst text = message.text.body;\nconst messageId = message.id;\nconst timestamp = new Date().toISOString();\n\nreturn {\n  json: {\n    customer_phone: from,\n    message_text: text,\n    message_id: messageId,\n    timestamp: timestamp,\n    conversation_id: `${from}_${new Date().toISOString().split('T')[0]}`\n  }\n};"
       },
-      "id": "extract_message_data",
+      "id": "extract_data",
       "name": "Extract Message Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [650, 250]
+      "position": [650, 500]
     },
     {
       "parameters": {
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "YOUR_GOOGLE_SHEET_ID",
+          "value": "CONVERSATION_SHEET_ID",
           "mode": "id"
         },
         "sheetName": {
           "__rl": true,
-          "value": "CustomerMemory",
+          "value": "Conversations",
           "mode": "name"
         },
         "columns": {
@@ -61,21 +61,22 @@
           "value": {
             "timestamp": "={{$json.timestamp}}",
             "customer_phone": "={{$json.customer_phone}}",
-            "message": "={{$json.message}}",
-            "conversation_id": "={{$json.conversation_id}}"
+            "message": "={{$json.message_text}}",
+            "message_id": "={{$json.message_id}}",
+            "conversation_id": "={{$json.conversation_id}}",
+            "type": "incoming"
           }
-        },
-        "options": {}
+        }
       },
-      "id": "save_to_memory",
-      "name": "Save to Memory (Sheet)",
+      "id": "log_incoming",
+      "name": "Log Incoming Message",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [850, 150],
+      "position": [850, 300],
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "YOUR_GOOGLE_CREDENTIALS",
-          "name": "Google Sheets account"
+          "id": "GOOGLE_CREDENTIALS",
+          "name": "Google Sheets"
         }
       }
     },
@@ -84,12 +85,47 @@
         "operation": "search",
         "documentId": {
           "__rl": true,
-          "value": "YOUR_GOOGLE_SHEET_ID",
+          "value": "CUSTOMER_SHEET_ID",
           "mode": "id"
         },
         "sheetName": {
           "__rl": true,
-          "value": "CustomerMemory",
+          "value": "Customers",
+          "mode": "name"
+        },
+        "filters": {
+          "values": [
+            {
+              "column": "phone",
+              "value": "={{$json.customer_phone}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check_customer",
+      "name": "Check Customer Profile",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [850, 500],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_CREDENTIALS",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "documentId": {
+          "__rl": true,
+          "value": "CONVERSATION_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Conversations",
           "mode": "name"
         },
         "filters": {
@@ -104,81 +140,307 @@
           "returnAllMatches": true
         }
       },
-      "id": "get_customer_history",
-      "name": "Get Customer History",
+      "id": "get_history",
+      "name": "Get Conversation History",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [850, 350],
+      "position": [850, 700],
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "YOUR_GOOGLE_CREDENTIALS",
-          "name": "Google Sheets account"
+          "id": "GOOGLE_CREDENTIALS",
+          "name": "Google Sheets"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const currentMessage = $('Extract Message Data').first().json;\nconst history = $input.all().map(item => item.json);\n\nconst conversationContext = history\n  .slice(-5)\n  .map(h => `Customer: ${h.message}`)\n  .join('\\n');\n\nreturn {\n  json: {\n    current_message: currentMessage.message,\n    customer_phone: currentMessage.customer_phone,\n    conversation_history: conversationContext,\n    total_interactions: history.length\n  }\n};"
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "MENU_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Menu",
+          "mode": "name"
+        },
+        "returnAll": true,
+        "options": {}
       },
-      "id": "prepare_ai_context",
+      "id": "get_menu",
+      "name": "Get Menu Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1050, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_CREDENTIALS",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "RESERVATIONS_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Reservations",
+          "mode": "name"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "get_reservations",
+      "name": "Get Available Slots",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1050, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_CREDENTIALS",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get data from all sources\nconst currentMsg = $('Extract Message Data').first().json;\nconst customerData = $('Check Customer Profile').all();\nconst history = $('Get Conversation History').all();\nconst menu = $('Get Menu Data').all();\nconst reservations = $('Get Available Slots').all();\n\n// Build customer profile\nlet customerProfile = {\n  isNewCustomer: customerData.length === 0,\n  phone: currentMsg.customer_phone,\n  name: customerData.length > 0 ? customerData[0].json.name : 'Guest',\n  preferences: customerData.length > 0 ? customerData[0].json.preferences : '',\n  dietary_restrictions: customerData.length > 0 ? customerData[0].json.dietary_restrictions : '',\n  favorite_items: customerData.length > 0 ? customerData[0].json.favorite_items : '',\n  total_orders: customerData.length > 0 ? customerData[0].json.total_orders : 0,\n  loyalty_points: customerData.length > 0 ? customerData[0].json.loyalty_points : 0\n};\n\n// Build conversation context (last 10 messages)\nlet conversationContext = history\n  .slice(-10)\n  .map(h => `[${h.json.type}] ${h.json.message}`)\n  .join('\\n');\n\n// Build menu catalog\nlet menuCatalog = menu.map(item => \n  `${item.json.category} - ${item.json.name}: ${item.json.description} (${item.json.price}) [Available: ${item.json.available}] [Allergens: ${item.json.allergens || 'None'}]`\n).join('\\n');\n\n// Build available time slots for today and tomorrow\nconst today = new Date().toISOString().split('T')[0];\nconst tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];\n\nlet availableSlots = reservations\n  .filter(r => (r.json.date === today || r.json.date === tomorrow) && r.json.status === 'available')\n  .map(r => `${r.json.date} at ${r.json.time} (${r.json.capacity} seats)`)\n  .join('\\n');\n\nreturn {\n  json: {\n    current_message: currentMsg.message_text,\n    customer_phone: currentMsg.customer_phone,\n    conversation_id: currentMsg.conversation_id,\n    customer_profile: customerProfile,\n    conversation_history: conversationContext,\n    menu_catalog: menuCatalog,\n    available_slots: availableSlots || 'No slots available for today/tomorrow',\n    timestamp: currentMsg.timestamp\n  }\n};"
+      },
+      "id": "prepare_context",
       "name": "Prepare AI Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1050, 300]
+      "position": [1250, 500]
     },
     {
       "parameters": {
-        "resource": "message",
-        "model": {
-          "__rl": true,
-          "value": "claude-sonnet-4-20250514",
-          "mode": "list"
-        },
-        "prompt": {
-          "messages": [
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "role": "user",
-              "content": "=You are a friendly restaurant assistant. Help customers with:\n- Menu inquiries\n- Reservations\n- Order placement\n- Special dietary requirements\n- Operating hours\n\nCustomer conversation history:\n{{$json.conversation_history}}\n\nCurrent message: {{$json.current_message}}\n\nRespond naturally and helpfully. If they want to make a reservation or order, collect: name, date/time, number of people, special requests."
+              "name": "anthropic-version",
+              "value": "2023-06-01"
             }
           ]
         },
-        "options": {
-          "maxTokens": 1000
-        }
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 2000,\n  \"system\": \"You are an intelligent restaurant automation assistant. Your capabilities:\\n\\n1. MENU INQUIRIES: Answer questions about dishes, ingredients, allergens, prices\\n2. RESERVATIONS: Book tables, modify, cancel reservations\\n3. ORDERS: Take delivery/pickup orders, process payments\\n4. CUSTOMER SERVICE: Handle complaints, special requests, dietary needs\\n5. LOYALTY PROGRAM: Track points, offer rewards\\n6. OPERATING HOURS: Provide schedule information\\n7. PROMOTIONS: Share current deals and special offers\\n\\nCUSTOMER PROFILE:\\n{{$json.customer_profile}}\\n\\nRECENT CONVERSATION:\\n{{$json.conversation_history}}\\n\\nMENU (Full Catalog):\\n{{$json.menu_catalog}}\\n\\nAVAILABLE RESERVATION SLOTS:\\n{{$json.available_slots}}\\n\\nRULES:\\n- Always be warm, friendly, and professional\\n- Use customer's name if available\\n- Personalize based on preferences and history\\n- For orders: confirm items, quantity, special requests, delivery address\\n- For reservations: confirm date, time, number of guests, special occasions\\n- Upsell relevant items based on order\\n- Award loyalty points (10 points per order)\\n- Extract structured data for database updates\\n\\nRESPONSE FORMAT:\\nProvide your response in this JSON structure:\\n{\\n  \\\"message\\\": \\\"Your friendly response to customer\\\",\\n  \\\"intent\\\": \\\"menu_inquiry|reservation|order|complaint|general\\\",\\n  \\\"action_required\\\": \\\"none|create_reservation|create_order|update_customer|send_confirmation\\\",\\n  \\\"extracted_data\\\": {\\n    \\\"reservation\\\": {\\\"date\\\": \\\"\\\", \\\"time\\\": \\\"\\\", \\\"guests\\\": 0, \\\"special_requests\\\": \\\"\\\"},\\n    \\\"order\\\": {\\\"items\\\": [], \\\"total\\\": 0, \\\"delivery_address\\\": \\\"\\\", \\\"special_instructions\\\": \\\"\\\"},\\n    \\\"customer_update\\\": {\\\"name\\\": \\\"\\\", \\\"preferences\\\": \\\"\\\", \\\"dietary_restrictions\\\": \\\"\\\"}\\n  },\\n  \\\"loyalty_points_to_add\\\": 0\\n}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"{{$json.current_message}}\"\n    }\n  ]\n}",
+        "options": {}
       },
-      "id": "ai_response",
-      "name": "AI Response (Claude)",
-      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
-      "typeVersion": 1,
-      "position": [1250, 300],
+      "id": "ai_processing",
+      "name": "AI Processing (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1450, 500],
       "credentials": {
         "anthropicApi": {
-          "id": "YOUR_ANTHROPIC_API_KEY",
-          "name": "Anthropic account"
+          "id": "ANTHROPIC_CREDENTIALS",
+          "name": "Anthropic API"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const aiResponse = $json.content[0].text;\nconst customerPhone = $('Prepare AI Context').first().json.customer_phone;\n\nreturn {\n  json: {\n    response_text: aiResponse,\n    customer_phone: customerPhone,\n    timestamp: new Date().toISOString()\n  }\n};"
+        "jsCode": "const response = $input.first().json;\nconst aiResponse = JSON.parse(response.content[0].text);\nconst contextData = $('Prepare AI Context').first().json;\n\nreturn {\n  json: {\n    message_to_send: aiResponse.message,\n    intent: aiResponse.intent,\n    action_required: aiResponse.action_required,\n    extracted_data: aiResponse.extracted_data,\n    loyalty_points_to_add: aiResponse.loyalty_points_to_add || 0,\n    customer_phone: contextData.customer_phone,\n    conversation_id: contextData.conversation_id,\n    timestamp: new Date().toISOString()\n  }\n};"
       },
-      "id": "format_response",
-      "name": "Format Response",
+      "id": "parse_ai_response",
+      "name": "Parse AI Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1450, 300]
+      "position": [1650, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.action_required}}",
+              "operation": "equals",
+              "value2": "create_reservation"
+            }
+          ]
+        }
+      },
+      "id": "check_reservation",
+      "name": "Check If Reservation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.action_required}}",
+              "operation": "equals",
+              "value2": "create_order"
+            }
+          ]
+        }
+      },
+      "id": "check_order",
+      "name": "Check If Order",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1850, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.action_required}}",
+              "operation": "equals",
+              "value2": "update_customer"
+            }
+          ]
+        }
+      },
+      "id": "check_update",
+      "name": "Check If Customer Update",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1850, 700]
     },
     {
       "parameters": {
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "YOUR_GOOGLE_SHEET_ID",
+          "value": "RESERVATIONS_SHEET_ID",
           "mode": "id"
         },
         "sheetName": {
           "__rl": true,
-          "value": "CustomerMemory",
+          "value": "Reservations",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reservation_id": "=RES-{{$now.format('YYYYMMDDHHmmss')}}",
+            "customer_phone": "={{$json.customer_phone}}",
+            "date": "={{$json.extracted_data.reservation.date}}",
+            "time": "={{$json.extracted_data.reservation.time}}",
+            "guests": "={{$json.extracted_data.reservation.guests}}",
+            "special_requests": "={{$json.extracted_data.reservation.special_requests}}",
+            "status": "confirmed",
+            "created_at": "={{$json.timestamp}}"
+          }
+        }
+      },
+      "id": "create_reservation",
+      "name": "Create Reservation",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2050, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_CREDENTIALS",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "ORDERS_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Orders",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "=ORD-{{$now.format('YYYYMMDDHHmmss')}}",
+            "customer_phone": "={{$json.customer_phone}}",
+            "items": "={{$json.extracted_data.order.items.join(', ')}}",
+            "total": "={{$json.extracted_data.order.total}}",
+            "delivery_address": "={{$json.extracted_data.order.delivery_address}}",
+            "special_instructions": "={{$json.extracted_data.order.special_instructions}}",
+            "status": "confirmed",
+            "created_at": "={{$json.timestamp}}"
+          }
+        }
+      },
+      "id": "create_order",
+      "name": "Create Order",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2050, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_CREDENTIALS",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "CUSTOMER_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Customers",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{$json.customer_phone}}",
+            "name": "={{$json.extracted_data.customer_update.name}}",
+            "preferences": "={{$json.extracted_data.customer_update.preferences}}",
+            "dietary_restrictions": "={{$json.extracted_data.customer_update.dietary_restrictions}}",
+            "total_orders": "=1",
+            "loyalty_points": "={{$json.loyalty_points_to_add}}",
+            "last_contact": "={{$json.timestamp}}"
+          }
+        }
+      },
+      "id": "update_customer",
+      "name": "Update Customer Profile",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2050, 600],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_CREDENTIALS",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "CONVERSATION_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Conversations",
           "mode": "name"
         },
         "columns": {
@@ -186,75 +448,68 @@
           "value": {
             "timestamp": "={{$json.timestamp}}",
             "customer_phone": "={{$json.customer_phone}}",
-            "message": "=AI: {{$json.response_text}}",
-            "conversation_id": "={{$('Extract Message Data').first().json.conversation_id}}"
+            "message": "={{$json.message_to_send}}",
+            "conversation_id": "={{$json.conversation_id}}",
+            "type": "outgoing",
+            "intent": "={{$json.intent}}"
           }
         }
       },
-      "id": "save_ai_response",
-      "name": "Save AI Response to Memory",
+      "id": "log_outgoing",
+      "name": "Log AI Response",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [1650, 200],
+      "position": [2250, 500],
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "YOUR_GOOGLE_CREDENTIALS",
-          "name": "Google Sheets account"
+          "id": "GOOGLE_CREDENTIALS",
+          "name": "Google Sheets"
         }
       }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://graph.facebook.com/v17.0/YOUR_PHONE_NUMBER_ID/messages",
+        "url": "=https://graph.facebook.com/v18.0/{{$env.WHATSAPP_PHONE_ID}}/messages",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "whatsAppApi",
-        "sendBody": true,
-        "bodyParameters": {
+        "sendHeaders": true,
+        "headerParameters": {
           "parameters": [
             {
-              "name": "messaging_product",
-              "value": "whatsapp"
-            },
-            {
-              "name": "to",
-              "value": "={{$json.customer_phone}}"
-            },
-            {
-              "name": "type",
-              "value": "text"
-            },
-            {
-              "name": "text",
-              "value": "={\"body\": \"{{$json.response_text}}\"}"
+              "name": "Authorization",
+              "value": "=Bearer {{$env.WHATSAPP_TOKEN}}"
             }
           ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{$json.customer_phone}}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"body\": \"{{$json.message_to_send}}\"\n  }\n}",
         "options": {}
       },
-      "id": "send_whatsapp_response",
-      "name": "Send WhatsApp Response",
+      "id": "send_whatsapp",
+      "name": "Send WhatsApp Message",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1650, 400],
+      "position": [2450, 500],
       "credentials": {
         "whatsAppApi": {
-          "id": "YOUR_WHATSAPP_CREDENTIALS",
-          "name": "WhatsApp API"
+          "id": "WHATSAPP_CREDENTIALS",
+          "name": "WhatsApp Business API"
         }
       }
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\"status\": \"success\", \"message\": \"Message processed\"}",
+        "responseBody": "={\"status\": \"success\", \"message_processed\": true}",
         "options": {}
       },
       "id": "webhook_response",
       "name": "Webhook Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1850, 300]
+      "position": [2650, 500]
     }
   ],
   "connections": {
@@ -284,19 +539,73 @@
       "main": [
         [
           {
-            "node": "Save to Memory (Sheet)",
+            "node": "Log Incoming Message",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Get Customer History",
+            "node": "Check Customer Profile",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Conversation History",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Customer History": {
+    "Check Customer Profile": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Conversation History": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Incoming Message": {
+      "main": [
+        [
+          {
+            "node": "Get Menu Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Available Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Menu Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Available Slots": {
       "main": [
         [
           {
@@ -311,41 +620,95 @@
       "main": [
         [
           {
-            "node": "AI Response (Claude)",
+            "node": "AI Processing (Claude)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "AI Response (Claude)": {
+    "AI Processing (Claude)": {
       "main": [
         [
           {
-            "node": "Format Response",
+            "node": "Parse AI Response",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Format Response": {
+    "Parse AI Response": {
       "main": [
         [
           {
-            "node": "Save AI Response to Memory",
+            "node": "Check If Reservation",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Send WhatsApp Response",
+            "node": "Check If Order",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check If Customer Update",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log AI Response",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send WhatsApp Response": {
+    "Check If Reservation": {
+      "main": [
+        [
+          {
+            "node": "Create Reservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Order": {
+      "main": [
+        [
+          {
+            "node": "Create Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Customer Update": {
+      "main": [
+        [
+          {
+            "node": "Update Customer Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log AI Response": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Message": {
       "main": [
         [
           {
@@ -365,5 +728,5 @@
   "tags": [],
   "triggerCount": 1,
   "updatedAt": "2026-01-20T00:00:00.000Z",
-  "versionId": "1"
+  "versionId": "2.0"
 }
