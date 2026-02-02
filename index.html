@@ -6,7 +6,7 @@
     <title>Login - Automation JSON Scanner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+ <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         .gradient-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -18,6 +18,31 @@
         }
     </style>
 </head>
+
+<script>
+  const supabaseUrl = "https://YOUR_PROJECT_ID.supabase.co";
+  const supabaseKey = "YOUR_PUBLIC_ANON_KEY";
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+  // 🔒 Yetki kontrolü
+  (function () {
+    const remember = localStorage.getItem("remember") === "true";
+    const storage = remember ? localStorage : sessionStorage;
+
+    const session = storage.getItem("sb-session");
+    if (!session) {
+      window.location.href = "login.html";
+    }
+  })();
+
+  async function logout() {
+    await supabase.auth.signOut();
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = "login.html";
+  }
+</script>   
+    
 <body class="bg-gray-900">
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full">
@@ -181,8 +206,8 @@
             </div>
             
             <div class="text-center text-xs text-gray-500 mt-8">
-                <p>© 2024 Automation JSON Browser. All rights reserved.</p>
-                <p class="mt-1">Secure authentication powered by Supabase</p>
+                <p>© 2026 Automation JSON Browser. All rights reserved.</p>
+                <p class="mt-1">Secure authentication powered by Supabase & Muammer Altunkan</p>
             </div>
         </div>
     </div>
