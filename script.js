@@ -31,7 +31,16 @@ async function initApp() {
         // Not on dashboard page, load automations directly
         loadAutomations();
     }
+    
+    // Favoriler modalını setup et
+    setupFavoritesModal();
+    
+    // Klavye kısayollarını etkinleştir
+    setupKeyboardShortcuts();
 }
+
+// --- FAVORİLER İÇİN DEĞİŞKENLER ---
+let favorites = JSON.parse(localStorage.getItem('automation-favorites')) || [];
 
 // --- METADATA VE VERİLER ---
 const automationData = [
@@ -248,6 +257,7 @@ function displayAutomations(automationsToShow) {
     
     // Create automation cards
     automationsToShow.forEach(automation => {
+        const isFavorite = favorites.includes(automation.id);
         const card = document.createElement('div');
         card.className = 'bg-gray-800 rounded-xl overflow-hidden border border-gray-700 hover:border-blue-500 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/10 group';
         
@@ -288,10 +298,10 @@ function displayAutomations(automationsToShow) {
                                 title="Download JSON">
                             <i class="fas fa-download mr-1"></i> Download
                         </button>
-                        <button class="text-gray-400 hover:text-red-500 favorite-btn" 
+                        <button class="favorite-btn ${isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}" 
                                 data-id="${automation.id}"
-                                title="Add to favorites">
-                            <i class="far fa-heart"></i>
+                                title="${isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
+                            <i class="${isFavorite ? 'fas' : 'far'} fa-heart"></i>
                         </button>
                     </div>
                 </div>
@@ -451,51 +461,259 @@ function setupCardButtons() {
     // Favorite buttons
     document.querySelectorAll('.favorite-btn').forEach(btn => {
         btn.addEventListener('click', async function() {
-            const id = this.getAttribute('data-id');
-            const automation = automationData.find(a => a.id == id);
+            const id = parseInt(this.getAttribute('data-id'));
+            const automation = automationData.find(a => a.id === id);
             
             if (!automation) return;
             
             const icon = this.querySelector('i');
-            const isFavorite = !icon.classList.contains('fas');
+            const wasAdded = toggleFavorite(id);
             
-            try {
-                // Check if user is logged in
-                if (typeof AuthService !== 'undefined') {
-                    const user = await AuthService.getCurrentUser();
-                    if (user) {
-                        // Save favorite to Supabase (you'll need to implement this)
-                        // await saveFavorite(user.id, automation.id);
-                    }
-                }
-                
-                // Update UI
-                if (isFavorite) {
-                    icon.classList.remove('far');
-                    icon.classList.add('fas', 'text-red-500');
-                    this.classList.add('text-red-500');
-                    showToast(`Added "${automation.title}" to favorites`, 'success');
-                } else {
-                    icon.classList.remove('fas', 'text-red-500');
-                    icon.classList.add('far');
-                    this.classList.remove('text-red-500');
-                    showToast(`Removed "${automation.title}" from favorites`, 'info');
-                }
-                
-            } catch (error) {
-                console.error('Favorite action failed:', error);
-                // Still update UI for better UX
-                if (isFavorite) {
-                    icon.classList.remove('far');
-                    icon.classList.add('fas', 'text-red-500');
-                    this.classList.add('text-red-500');
-                } else {
-                    icon.classList.remove('fas', 'text-red-500');
-                    icon.classList.add('far');
-                    this.classList.remove('text-red-500');
+            // UI güncellemesi toggleFavorite içinde yapılıyor
+            // Sadece modal açıksa güncelle
+            const favoritesModal = document.getElementById('favorites-modal');
+            if (favoritesModal && !favoritesModal.classList.contains('hidden')) {
+                updateFavoritesModal();
+            }
+        });
+    });
+}
+
+// Favori ekle/kaldır
+function toggleFavorite(automationId) {
+    const index = favorites.indexOf(automationId);
+    const automation = automationData.find(a => a.id == automationId);
+    
+    if (index === -1) {
+        // Ekle
+        favorites.push(automationId);
+        showToast(`"${automation.title}" favorilere eklendi`, 'success');
+    } else {
+        // Kaldır
+        favorites.splice(index, 1);
+        showToast(`"${automation.title}" favorilerden kaldırıldı`, 'info');
+    }
+    
+    // LocalStorage'a kaydet
+    localStorage.setItem('automation-favorites', JSON.stringify(favorites));
+    
+    // UI'ı güncelle
+    updateFavoritesUI();
+    
+    return index === -1; // true = eklendi, false = kaldırıldı
+}
+
+// Favoriler UI'ını güncelle (badge ve butonlar)
+function updateFavoritesUI() {
+    // Badge güncelle
+    const badge = document.getElementById('favorites-badge');
+    if (badge) {
+        badge.textContent = favorites.length;
+        badge.classList.toggle('hidden', favorites.length === 0);
+    }
+    
+    // Kartlardaki favori butonlarını güncelle
+    document.querySelectorAll('.favorite-btn').forEach(btn => {
+        const id = btn.getAttribute('data-id');
+        const icon = btn.querySelector('i');
+        
+        if (favorites.includes(parseInt(id))) {
+            icon.classList.remove('far');
+            icon.classList.add('fas', 'text-red-500');
+            btn.classList.add('text-red-500');
+        } else {
+            icon.classList.remove('fas', 'text-red-500');
+            icon.classList.add('far');
+            btn.classList.remove('text-red-500');
+        }
+    });
+}
+
+// Favoriler modalını güncelle
+function updateFavoritesModal() {
+    const favoritesList = document.getElementById('favorites-list');
+    const emptyFavorites = document.getElementById('empty-favorites');
+    const favoritesCount = document.getElementById('favorites-count');
+    
+    if (!favoritesList) return;
+    
+    // Sayıyı güncelle
+    if (favoritesCount) {
+        favoritesCount.textContent = favorites.length;
+    }
+    
+    // Liste temizle
+    favoritesList.innerHTML = '';
+    
+    if (favorites.length === 0) {
+        // Boş favori mesajını göster
+        if (emptyFavorites) {
+            favoritesList.appendChild(emptyFavorites);
+            emptyFavorites.classList.remove('hidden');
+        }
+        return;
+    }
+    
+    // Boş mesajı gizle
+    if (emptyFavorites) {
+        emptyFavorites.classList.add('hidden');
+    }
+    
+    // Favori otomasyonları ekle
+    favorites.forEach(favId => {
+        const automation = automationData.find(a => a.id === favId);
+        if (!automation) return;
+        
+        const favoriteCard = document.createElement('div');
+        favoriteCard.className = 'favorite-card backdrop-blur-sm bg-white/5 border border-white/10 rounded-lg p-4';
+        favoriteCard.innerHTML = `
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <div class="flex items-center mb-2">
+                        <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-white/10 text-gray-300 mr-2">
+                            ${formatCategoryName(automation.category)}
+                        </span>
+                        <span class="text-xs text-gray-400">${automation.source}</span>
+                    </div>
+                    <h4 class="font-semibold text-white mb-1">${automation.title}</h4>
+                    <p class="text-sm text-gray-400 truncate">${automation.description}</p>
+                </div>
+                <div class="flex items-center ml-4">
+                    <button class="favorite-card-remove text-gray-400 hover:text-red-400 transition-colors ml-2" 
+                            data-id="${automation.id}"
+                            title="Favorilerden kaldır">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-white/10 flex justify-between items-center">
+                <div class="flex flex-wrap gap-1">
+                    ${automation.tags.slice(0, 2).map(tag => `
+                        <span class="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">
+                            #${tag}
+                        </span>
+                    `).join('')}
+                    ${automation.tags.length > 2 ? `<span class="text-xs text-gray-500">+${automation.tags.length - 2}</span>` : ''}
+                </div>
+                <button class="text-xs text-blue-400 hover:text-blue-300 download-json-btn" 
+                        data-source="${automation.source}">
+                    <i class="fas fa-download mr-1"></i>İndir
+                </button>
+            </div>
+        `;
+        
+        favoritesList.appendChild(favoriteCard);
+    });
+    
+    // Favori kaldırma butonlarına event listener ekle
+    favoritesList.querySelectorAll('.favorite-card-remove').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const removed = toggleFavorite(parseInt(id));
+            
+            if (!removed) { // removed false ise kaldırılmıştır
+                // Kartı kaldır
+                const card = this.closest('.favorite-card');
+                if (card) {
+                    card.classList.add('opacity-0', 'scale-95');
+                    setTimeout(() => {
+                        card.remove();
+                        updateFavoritesModal();
+                    }, 300);
                 }
             }
         });
+    });
+    
+    // Modal içindeki indir butonlarını setup et
+    favoritesList.querySelectorAll('.download-json-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const source = this.getAttribute('data-source');
+            // Mevcut download fonksiyonunu çağır
+            const downloadBtn = document.querySelector(`.download-json-btn[data-source="${source}"]`);
+            if (downloadBtn) {
+                downloadBtn.click();
+            }
+        });
+    });
+}
+
+// Setup favorites modal
+function setupFavoritesModal() {
+    const favoritesToggle = document.getElementById('favorites-toggle');
+    const closeFavoritesModal = document.getElementById('close-favorites-modal');
+    const clearAllFavorites = document.getElementById('clear-all-favorites');
+    const favoritesModal = document.getElementById('favorites-modal');
+    
+    if (!favoritesToggle || !favoritesModal) return;
+    
+    // Modal açma/kapama
+    favoritesToggle.addEventListener('click', () => {
+        updateFavoritesModal();
+        favoritesModal.classList.remove('hidden');
+        favoritesModal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+    });
+    
+    closeFavoritesModal.addEventListener('click', () => {
+        favoritesModal.classList.add('hidden');
+        favoritesModal.classList.remove('flex');
+        document.body.style.overflow = '';
+    });
+    
+    // Dışarı tıklayarak kapatma
+    favoritesModal.addEventListener('click', (e) => {
+        if (e.target === favoritesModal) {
+            favoritesModal.classList.add('hidden');
+            favoritesModal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+    });
+    
+    // Tüm favorileri temizle
+    clearAllFavorites.addEventListener('click', () => {
+        if (favorites.length === 0) return;
+        
+        if (confirm('Tüm favorileri temizlemek istediğinize emin misiniz?')) {
+            favorites = [];
+            localStorage.setItem('automation-favorites', JSON.stringify(favorites));
+            updateFavoritesUI();
+            updateFavoritesModal();
+            showToast('Tüm favoriler temizlendi', 'info');
+        }
+    });
+    
+    // Başlangıçta favorileri güncelle
+    updateFavoritesUI();
+}
+
+// Setup keyboard shortcuts
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // ESC ile modal kapatma
+        if (e.key === 'Escape') {
+            const favoritesModal = document.getElementById('favorites-modal');
+            const jsonModal = document.getElementById('json-modal');
+            
+            if (favoritesModal && !favoritesModal.classList.contains('hidden')) {
+                favoritesModal.classList.add('hidden');
+                favoritesModal.classList.remove('flex');
+                document.body.style.overflow = '';
+            }
+            
+            if (jsonModal && !jsonModal.classList.contains('hidden')) {
+                hideJSONModal();
+            }
+        }
+        
+        // Ctrl+F ile favorileri açma
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            const favoritesToggle = document.getElementById('favorites-toggle');
+            if (favoritesToggle) {
+                favoritesToggle.click();
+            }
+        }
     });
 }
 
