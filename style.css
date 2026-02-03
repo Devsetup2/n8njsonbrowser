@@ -22,3 +22,43 @@ body {
     transform: translateY(-5px);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
+
+/*favoriler/
+/* Favoriler modal scrollbar */
+#favorites-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+#favorites-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+#favorites-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+
+#favorites-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Favori kartları için stil */
+.favorite-card {
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.favorite-card:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.favorite-card-remove {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.favorite-card:hover .favorite-card-remove {
+    opacity: 1;
+}
