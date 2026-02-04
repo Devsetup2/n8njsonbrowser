@@ -7,7 +7,11 @@
     <script src="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <script src="https://unpkg.com/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" 
+      content="default-src 'self'; 
+               script-src 'self' https://supabase.co https://*.supabase.co;
+               connect-src 'self' https://supabase.co https://*.supabase.co;
+               style-src 'self' 'unsafe-inline';">
     <style>
   body {
   font-family: Arial, sans-serif;
@@ -139,43 +143,145 @@ input:checked + .slider:before {
 </html>
 
     <script>
-     
-    const supabaseUrl = "https://uhilmiekxkfdivejkebx.supabase.co";
+// dashboard.html'de
+const { data: { session } } = await supabase.auth.getSession();
+
+if (!session) {
+  window.location.href = "index.html";
+}
+//güncell
+const supabaseUrl = "https://uhilmiekxkfdivejkebx.supabase.co";
 const supabaseKey = "sb_publishable_ePVudy96lnfrBC7fApdILw_mcFhoxrF";
-const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 async function login() {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value;
-  const remember = document.getElementById("rememberMe").checked;
+  const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+  const rememberCheckbox = document.getElementById("rememberMe");
   const message = document.getElementById("message");
 
-  message.innerText = "";
+  // Null kontrolü - HATA DÜZELTİLDİ
+  if (!emailInput || !passwordInput || !rememberCheckbox || !message) {
+    console.error("Form elementleri bulunamadı!");
+    return;
+  }
 
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+  const remember = rememberCheckbox.checked;
+
+  message.innerText = "";
+  message.className = "";
+
+  // Validasyon - HATA DÜZELTİLDİ
   if (!email || !password) {
     message.innerText = "E-posta ve şifre giriniz";
+    message.className = "error";
     return;
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-
-  if (error) {
-    message.innerText = "E-posta veya şifre yanlış";
+  // Email format kontrolü - YENİ EKLENDİ
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    message.innerText = "Geçerli bir e-posta adresi giriniz";
+    message.className = "error";
     return;
   }
 
-  // ✅ GİRİŞ BAŞARILI
-  const storage = remember ? localStorage : sessionStorage;
+  // Butonu devre dışı bırak - YENİ EKLENDİ
+  const loginBtn = document.querySelector("button[type='submit']");
+  const originalBtnText = loginBtn?.textContent;
+  if (loginBtn) {
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Giriş yapılıyor...";
+  }
 
-  storage.setItem("sb-session", JSON.stringify(data.session));
-  localStorage.setItem("remember", remember);
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
 
-  // 👉 SADECE BURADA YÖNLENDİRİR
-  window.location.href = "dashboard.html";
-}   
+    if (error) {
+      // Hata mesajı iyileştirildi
+      if (error.message.includes("Invalid login credentials")) {
+        message.innerText = "E-posta veya şifre yanlış";
+      } else if (error.message.includes("Email not confirmed")) {
+        message.innerText = "E-posta adresinizi doğrulayın";
+      } else {
+        message.innerText = `Giriş hatası: ${error.message}`;
+      }
+      message.className = "error";
+      return;
+    }
+
+    // ✅ GİRİŞ BAŞARILI
+    message.innerText = "Giriş başarılı! Yönlendiriliyorsunuz...";
+    message.className = "success";
+
+    const storage = remember ? localStorage : sessionStorage;
+    storage.setItem("sb-session", JSON.stringify(data.session));
+    localStorage.setItem("remember", remember);
+
+    // Supabase session'ı güncelle - YENİ EKLENDİ
+    await supabase.auth.setSession(data.session);
+
+    // 1 saniye bekle ve yönlendir - YENİ EKLENDİ
+    setTimeout(() => {
+      window.location.href = "dashboard.html";
+    }, 1000);
+
+  } catch (error) {
+    console.error("Beklenmeyen hata:", error);
+    message.innerText = "Sistem hatası. Lütfen tekrar deneyin.";
+    message.className = "error";
+  } finally {
+    // Butonu tekrar aktif et - YENİ EKLENDİ
+    if (loginBtn) {
+      loginBtn.disabled = false;
+      loginBtn.textContent = originalBtnText;
+    }
+  }
+}
+
+// Enter tuşu ile giriş - YENİ EKLENDİ
+document.addEventListener("DOMContentLoaded", function() {
+  const passwordInput = document.getElementById("password");
+  if (passwordInput) {
+    passwordInput.addEventListener("keypress", function(e) {
+      if (e.key === "Enter") {
+        login();
+      }
+    });
+  }
+
+  const emailInput = document.getElementById("email");
+  if (emailInput) {
+    emailInput.addEventListener("keypress", function(e) {
+      if (e.key === "Enter") {
+        document.getElementById("password")?.focus();
+      }
+    });
+  }
+});
+
+// Şifre göster/gizle - YENİ EKLENDİ
+function togglePassword() {
+  const passwordInput = document.getElementById("password");
+  const toggleIcon = document.querySelector(".toggle-password");
+  
+  if (passwordInput.type === "password") {
+    passwordInput.type = "text";
+    if (toggleIcon) toggleIcon.textContent = "🙈";
+  } else {
+    passwordInput.type = "password";
+    if (toggleIcon) toggleIcon.textContent = "👁️";
+  }
+}
+
+        
+     
+
     </script>
    <script src="login.js"></script>
 </body>
